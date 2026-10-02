@@ -21,5 +21,28 @@ services:
       timeout: 5s
       retries: 10
 
+
+  application:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: jend-application
+
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "8080:8080"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+
 volumes:
   jend-postgres-data:
