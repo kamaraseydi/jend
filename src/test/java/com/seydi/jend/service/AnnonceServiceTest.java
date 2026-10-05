@@ -1,12 +1,11 @@
 package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
+import com.seydi.jend.dto.request.UpdateAnnonceRequest;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.dto.response.PageResponse;
 import com.seydi.jend.entity.*;
-import com.seydi.jend.exception.CompteSupprimeException;
-import com.seydi.jend.exception.ResourceNotFoundException;
-import com.seydi.jend.exception.UtilisateurSuspenduException;
+import com.seydi.jend.exception.*;
 import com.seydi.jend.mapper.AnnonceMapper;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.CategoryRepository;
@@ -26,6 +25,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 
@@ -648,6 +648,1318 @@ class AnnonceServiceTest {
         verifyNoInteractions(annonceRepository);
     }
 
+    @Test
+    void shouldReturnCurrentUserAnnonces() {
+
+        UserProfile currentUser = new UserProfile();
+        currentUser.setId(1L);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(currentUser);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+
+        Page<Annonce> page = new PageImpl<>(
+                List.of(annonce),
+                PageRequest.of(0, 20),
+                1
+        );
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("350000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.BROUILLON,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                2L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        PageResponse<AnnonceResponse> result =
+                annonceService.findMyAnnonces(null,0, 20);
+
+        assertEquals(1, result.content().size());
+        assertEquals(100L, result.content().get(0).id());
+        assertEquals(
+                StatutAnnonce.BROUILLON,
+                result.content().get(0).statut()
+        );
+
+        verify(currentUserService).getCurrentUser();
+
+        verify(annonceRepository).findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    void shouldRejectInvalidPageSizeForMyAnnonces() {
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> annonceService.findMyAnnonces(null,0, 51)
+        );
+
+        verifyNoInteractions(currentUserService);
+        verifyNoInteractions(annonceRepository);
+    }
+
+    @Test
+    void shouldReturnCurrentUserAnnoncesByStatus() {
+
+        UserProfile currentUser = new UserProfile();
+        currentUser.setId(1L);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(currentUser);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+
+        Page<Annonce> page = new PageImpl<>(
+                List.of(annonce),
+                PageRequest.of(0, 20),
+                1
+        );
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("350000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.BROUILLON,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                2L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        )).thenReturn(page);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        PageResponse<AnnonceResponse> result =
+                annonceService.findMyAnnonces(
+                        StatutAnnonce.BROUILLON,
+                        0,
+                        20
+                );
+
+        assertEquals(1, result.content().size());
+
+        assertEquals(
+                StatutAnnonce.BROUILLON,
+                result.content().get(0).statut()
+        );
+
+        verify(currentUserService).getCurrentUser();
+
+        verify(annonceRepository).findAll(
+                any(Specification.class),
+                any(Pageable.class)
+        );
+    }
+
+    @Test
+    void update_shouldUpdateAnnonce_whenUserIsOwner() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setTitre("Ancien titre");
+        annonce.setDescription("Ancienne description");
+        annonce.setPrix(new BigDecimal("400000"));
+        annonce.setEtat(EtatAnnonce.BON_ETAT);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVille("Dakar");
+        annonce.setQuartier("Almadies");
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.PUBLIEE,
+                "Dakar",
+                "Plateau",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+        when(categoryRepository.findById(10L))
+                .thenReturn(Optional.of(category));
+
+        doAnswer(invocation -> {
+            Annonce a = invocation.getArgument(0);
+
+            a.setTitre(request.titre());
+            a.setDescription(request.description());
+            a.setPrix(request.prix());
+            a.setEtat(request.etat());
+            a.setVille(request.ville());
+            a.setQuartier(request.quartier());
+
+            return null;
+        }).when(annonceMapper).updateEntity(annonce, request);
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.update(100L, request);
+
+        assertEquals(response, result);
+
+        assertEquals("iPhone 15 Pro", annonce.getTitre());
+        assertEquals("Excellent état", annonce.getDescription());
+        assertEquals(new BigDecimal("500000"), annonce.getPrix());
+        assertEquals(EtatAnnonce.COMME_NEUF, annonce.getEtat());
+        assertEquals("Dakar", annonce.getVille());
+        assertEquals("Plateau", annonce.getQuartier());
+
+        // Le statut ne doit surtout pas changer
+        assertEquals(StatutAnnonce.PUBLIEE, annonce.getStatut());
+
+        verify(annonceRepository).findById(100L);
+        verify(categoryRepository).findById(10L);
+        verify(annonceMapper).updateEntity(annonce, request);
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void update_shouldThrowException_whenAnnonceDoesNotExist() {
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.update(999L, request)
+        );
+
+        verify(annonceRepository).findById(999L);
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).updateEntity(any(), any());
+    }
+
+    @Test
+    void update_shouldThrowAccessDenied_whenUserIsNotOwner() {
+
+        UserProfile otherUser = new UserProfile();
+        otherUser.setId(99L);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(otherUser);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).updateEntity(any(), any());
+    }
+
+    @Test
+    void update_shouldThrowException_whenUserIsSuspended() {
+
+        user.setSuspendu(true);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void update_shouldThrowException_whenUserAccountIsDeleted() {
+
+        user.setDeletedAt(OffsetDateTime.now());
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void update_shouldThrowException_whenAnnonceIsSold() {
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.VENDUE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AnnonceModificationInterditeException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).updateEntity(any(), any());
+    }
+
+    @Test
+    void update_shouldThrowException_whenAnnonceIsDeleted() {
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AnnonceModificationInterditeException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository, never()).findById(anyLong());
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void update_shouldThrowException_whenCategoryDoesNotExist() {
+
+        Annonce annonce = new Annonce();
+        annonce.setId(100L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                999L
+        );
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(categoryRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.update(100L, request)
+        );
+
+        verify(categoryRepository).findById(999L);
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).updateEntity(any(), any());
+    }
+
+    @Test
+    void update_shouldAllowModification_whenAnnonceIsSuspended() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setTitre("Ancien titre");
+        annonce.setDescription("Ancienne description");
+        annonce.setPrix(new BigDecimal("400000"));
+        annonce.setEtat(EtatAnnonce.BON_ETAT);
+        annonce.setStatut(StatutAnnonce.SUSPENDUE);
+        annonce.setVille("Dakar");
+        annonce.setQuartier("Almadies");
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        UpdateAnnonceRequest request = new UpdateAnnonceRequest(
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                "Dakar",
+                "Plateau",
+                10L
+        );
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15 Pro",
+                "Excellent état",
+                new BigDecimal("500000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.SUSPENDUE,
+                "Dakar",
+                "Plateau",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(categoryRepository.findById(10L))
+                .thenReturn(Optional.of(category));
+
+        doAnswer(invocation -> {
+            Annonce a = invocation.getArgument(0);
+
+            a.setTitre(request.titre());
+            a.setDescription(request.description());
+            a.setPrix(request.prix());
+            a.setEtat(request.etat());
+            a.setVille(request.ville());
+            a.setQuartier(request.quartier());
+
+            return null;
+        }).when(annonceMapper).updateEntity(annonce, request);
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.update(100L, request);
+
+        assertEquals(response, result);
+
+        assertEquals("iPhone 15 Pro", annonce.getTitre());
+        assertEquals("Excellent état", annonce.getDescription());
+        assertEquals(new BigDecimal("500000"), annonce.getPrix());
+        assertEquals(EtatAnnonce.COMME_NEUF, annonce.getEtat());
+        assertEquals("Plateau", annonce.getQuartier());
+
+        // Une modification de contenu ne change pas le statut
+        assertEquals(StatutAnnonce.SUSPENDUE, annonce.getStatut());
+
+        verify(annonceRepository).findById(100L);
+        verify(categoryRepository).findById(10L);
+        verify(annonceMapper).updateEntity(annonce, request);
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void publish_shouldPublishAnnonce_whenAnnonceIsDraft() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("450000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.PUBLIEE,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.publish(100L);
+
+        assertEquals(response, result);
+
+        // La transition métier doit avoir eu lieu
+        assertEquals(
+                StatutAnnonce.PUBLIEE,
+                annonce.getStatut()
+        );
+
+        verify(currentUserService).getCurrentUser();
+        verify(annonceRepository).findById(100L);
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void publish_shouldRepublishAnnonce_whenAnnonceIsSuspended() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.SUSPENDUE);
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("450000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.PUBLIEE,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.publish(100L);
+
+        assertEquals(response, result);
+
+        assertEquals(
+                StatutAnnonce.PUBLIEE,
+                annonce.getStatut()
+        );
+
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void publish_shouldThrowException_whenAnnonceDoesNotExist() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.publish(999L)
+        );
+
+        verify(annonceRepository).findById(999L);
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldThrowAccessDenied_whenUserIsNotOwner() {
+
+        UserProfile otherUser = new UserProfile();
+        otherUser.setId(99L);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(otherUser);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldThrowException_whenUserIsSuspended() {
+
+        user.setSuspendu(true);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldThrowException_whenUserAccountIsDeleted() {
+
+        user.setDeletedAt(OffsetDateTime.now());
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldRejectAnnonceAlreadyPublished() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        assertEquals(
+                StatutAnnonce.PUBLIEE,
+                annonce.getStatut()
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldRejectSoldAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.VENDUE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void publish_shouldRejectDeletedAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.publish(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void pause_shouldSuspendAnnonce_whenAnnonceIsPublished() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("450000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.SUSPENDUE,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.pause(100L);
+
+        assertEquals(response, result);
+
+        assertEquals(
+                StatutAnnonce.SUSPENDUE,
+                annonce.getStatut()
+        );
+
+        verify(currentUserService).getCurrentUser();
+        verify(annonceRepository).findById(100L);
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void pause_shouldThrowException_whenAnnonceDoesNotExist() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.pause(999L)
+        );
+
+        verify(annonceRepository).findById(999L);
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void pause_shouldThrowAccessDenied_whenUserIsNotOwner() {
+
+        UserProfile otherUser = new UserProfile();
+        otherUser.setId(99L);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(otherUser);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void pause_shouldThrowException_whenUserIsSuspended() {
+
+        user.setSuspendu(true);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void pause_shouldThrowException_whenUserAccountIsDeleted() {
+
+        user.setDeletedAt(OffsetDateTime.now());
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void pause_shouldRejectDraftAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void pause_shouldRejectAlreadySuspendedAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.SUSPENDUE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void pause_shouldRejectSoldAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.VENDUE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.pause(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void sold_shouldMarkAnnonceAsSold_whenAnnonceIsPublished() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+        annonce.setCategory(category);
+
+        AnnonceResponse response = new AnnonceResponse(
+                100L,
+                "iPhone 15",
+                "Excellent état",
+                new BigDecimal("450000"),
+                EtatAnnonce.COMME_NEUF,
+                StatutAnnonce.VENDUE,
+                "Dakar",
+                "Almadies",
+                1L,
+                "Seydi",
+                10L,
+                "Téléphones",
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        when(annonceRepository.save(annonce))
+                .thenReturn(annonce);
+
+        when(annonceMapper.toResponse(annonce))
+                .thenReturn(response);
+
+        AnnonceResponse result =
+                annonceService.sold(100L);
+
+        assertEquals(response, result);
+
+        assertEquals(
+                StatutAnnonce.VENDUE,
+                annonce.getStatut()
+        );
+
+        verify(currentUserService).getCurrentUser();
+        verify(annonceRepository).findById(100L);
+        verify(annonceRepository).save(annonce);
+        verify(annonceMapper).toResponse(annonce);
+    }
+
+    @Test
+    void sold_shouldThrowException_whenAnnonceDoesNotExist() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(999L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.sold(999L)
+        );
+
+        verify(annonceRepository).findById(999L);
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void sold_shouldThrowAccessDenied_whenUserIsNotOwner() {
+
+        UserProfile otherUser = new UserProfile();
+        otherUser.setId(99L);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(otherUser);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void sold_shouldThrowException_whenUserIsSuspended() {
+
+        user.setSuspendu(true);
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void sold_shouldThrowException_whenUserAccountIsDeleted() {
+
+        user.setDeletedAt(OffsetDateTime.now());
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+        verify(annonceMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void sold_shouldRejectDraftAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.BROUILLON);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void sold_shouldRejectSuspendedAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.SUSPENDUE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void sold_shouldRejectAlreadySoldAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.VENDUE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
+
+    @Test
+    void sold_shouldRejectDeletedAnnonce() {
+
+        Annonce annonce = new Annonce();
+
+        annonce.setId(100L);
+        annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+        annonce.setVendeur(user);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(user);
+
+        when(annonceRepository.findById(100L))
+                .thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                InvalidAnnonceStatusTransitionException.class,
+                () -> annonceService.sold(100L)
+        );
+
+        verify(annonceRepository, never()).save(any());
+    }
 
 
 }
