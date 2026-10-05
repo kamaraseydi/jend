@@ -1,6 +1,7 @@
 package com.seydi.jend.mapper;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
+import com.seydi.jend.dto.request.UpdateAnnonceRequest;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.entity.Annonce;
 import org.springframework.stereotype.Component;
@@ -39,5 +40,17 @@ public class AnnonceMapper {
                 annonce.getCreatedAt(),
                 annonce.getUpdatedAt()
         );
+    }
+
+    public void updateEntity(
+            Annonce annonce,
+            UpdateAnnonceRequest request
+    ) {
+        annonce.setTitre(request.titre());
+        annonce.setDescription(request.description());
+        annonce.setPrix(request.prix());
+        annonce.setEtat(request.etat());
+        annonce.setVille(request.ville());
+        annonce.setQuartier(request.quartier());
     }
 }

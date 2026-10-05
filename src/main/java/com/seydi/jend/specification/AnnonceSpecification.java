@@ -79,5 +79,23 @@ public final class AnnonceSpecification {
         };
     }
 
+    public static Specification<Annonce> parVendeur(Long vendeurId) {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(
+                        root.get("vendeur").get("id"),
+                        vendeurId
+                );
+    }
+
+    public static Specification<Annonce> parStatut(
+            StatutAnnonce statut
+    ) {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(
+                        root.get("statut"),
+                        statut
+                );
+    }
+
 
 }
