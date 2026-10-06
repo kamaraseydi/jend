@@ -9,6 +9,7 @@ import com.seydi.jend.exception.*;
 import com.seydi.jend.mapper.AnnonceMapper;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.CategoryRepository;
+import com.seydi.jend.repository.FavoriteRepository;
 import com.seydi.jend.security.CurrentUserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,9 @@ class AnnonceServiceTest {
 
     @Mock
     private AnnonceMapper annonceMapper;
+
+    @Mock
+    private FavoriteRepository favoriteRepository;
 
     @InjectMocks
     private AnnonceService annonceService;
@@ -1978,8 +1982,13 @@ class AnnonceServiceTest {
 
         annonceService.delete(10L);
 
-        assertEquals(StatutAnnonce.SUPPRIMEE, annonce.getStatut());
-        verify(annonceRepository).findById(10L);
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce.getStatut()
+        );
+
+        verify(favoriteRepository)
+                .deleteByAnnonceId(10L);
     }
 
     @Test
