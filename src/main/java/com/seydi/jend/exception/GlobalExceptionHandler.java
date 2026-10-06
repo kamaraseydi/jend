@@ -152,4 +152,18 @@ public class GlobalExceptionHandler {
                         ex.getMessage()
                 ));
     }
+
+    @ExceptionHandler(FavoriteModificationInterditeException.class)
+    public ResponseEntity<ApiErrorResponse> handleFavoriteModificationInterdite(
+            FavoriteModificationInterditeException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        OffsetDateTime.now(),
+                        HttpStatus.CONFLICT.value(),
+                        "Modification du favori interdite",
+                        ex.getMessage()
+                ));
+    }
 }

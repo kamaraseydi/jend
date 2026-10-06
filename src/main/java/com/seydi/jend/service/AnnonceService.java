@@ -8,6 +8,7 @@ import com.seydi.jend.exception.*;
 import com.seydi.jend.mapper.AnnonceMapper;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.CategoryRepository;
+import com.seydi.jend.repository.FavoriteRepository;
 import com.seydi.jend.security.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class AnnonceService {
     private final CategoryRepository categoryRepository;
     private final CurrentUserService currentUserService;
     private final AnnonceMapper annonceMapper;
+    private final FavoriteRepository favoriteRepository;
 
     @Transactional
     public AnnonceResponse create(CreateAnnonceRequest request) {
@@ -475,10 +477,10 @@ public class AnnonceService {
             );
         }
 
+        favoriteRepository.deleteByAnnonceId(id);
+
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
         annonce.setUpdatedAt(OffsetDateTime.now());
-
-        annonceRepository.save(annonce);
     }
 
 
