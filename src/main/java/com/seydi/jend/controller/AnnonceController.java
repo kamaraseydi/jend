@@ -59,6 +59,8 @@ public class AnnonceController {
         );
     }
 
+
+
     @GetMapping("/me")
     public PageResponse<AnnonceResponse> findMyAnnonces(
             @RequestParam(required = false) StatutAnnonce statut,
@@ -94,6 +96,13 @@ public class AnnonceController {
     public AnnonceResponse sold(@PathVariable Long id) {
         return annonceService.sold(id);
     }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        annonceService.delete(id);
+    }
+
 
 
 }

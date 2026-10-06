@@ -442,5 +442,44 @@ public class AnnonceService {
         return annonceMapper.toResponse(soldAnnonce);
     }
 
+    @Transactional
+    public void delete(Long id) {
+
+        UserProfile currentUser = currentUserService.getCurrentUser();
+
+        Annonce annonce = annonceRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Annonce introuvable"));
+
+        if (!annonce.getVendeur().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException(
+                    "Vous n'êtes pas autorisé à supprimer cette annonce"
+            );
+        }
+
+        if (currentUser.isSuspendu()) {
+            throw new UtilisateurSuspenduException(
+                    "Votre compte est suspendu"
+            );
+        }
+
+        if (currentUser.getDeletedAt() != null) {
+            throw new CompteSupprimeException(
+                    "Votre compte a été supprimé"
+            );
+        }
+
+        if (annonce.getStatut() == StatutAnnonce.SUPPRIMEE) {
+            throw new AnnonceModificationInterditeException(
+                    "Cette annonce est déjà supprimée"
+            );
+        }
+
+        annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+        annonce.setUpdatedAt(OffsetDateTime.now());
+
+        annonceRepository.save(annonce);
+    }
+
 
 }

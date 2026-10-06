@@ -1961,5 +1961,128 @@ class AnnonceServiceTest {
         verify(annonceRepository, never()).save(any());
     }
 
+    @Test
+    void shouldDeleteAnnonce() {
+
+        UserProfile user = new UserProfile();
+        user.setId(1L);
+        user.setSuspendu(false);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(10L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(10L)).thenReturn(Optional.of(annonce));
+
+        annonceService.delete(10L);
+
+        assertEquals(StatutAnnonce.SUPPRIMEE, annonce.getStatut());
+        verify(annonceRepository).findById(10L);
+    }
+
+    @Test
+    void shouldThrowWhenDeletingUnknownAnnonce() {
+
+        UserProfile user = new UserProfile();
+        user.setId(1L);
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> annonceService.delete(99L)
+        );
+    }
+
+    @Test
+    void shouldRejectDeleteWhenUserIsNotOwner() {
+
+        UserProfile currentUser = new UserProfile();
+        currentUser.setId(1L);
+
+        UserProfile owner = new UserProfile();
+        owner.setId(2L);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(10L);
+        annonce.setVendeur(owner);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        when(currentUserService.getCurrentUser()).thenReturn(currentUser);
+        when(annonceRepository.findById(10L)).thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> annonceService.delete(10L)
+        );
+    }
+
+    @Test
+    void shouldRejectDeleteWhenUserIsSuspended() {
+
+        UserProfile user = new UserProfile();
+        user.setId(1L);
+        user.setSuspendu(true);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(10L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(10L)).thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> annonceService.delete(10L)
+        );
+    }
+
+    @Test
+    void shouldRejectDeleteWhenAccountIsDeleted() {
+
+        UserProfile user = new UserProfile();
+        user.setId(1L);
+        user.setSuspendu(false);
+        user.setDeletedAt(OffsetDateTime.now());
+
+        Annonce annonce = new Annonce();
+        annonce.setId(10L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.PUBLIEE);
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(10L)).thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> annonceService.delete(10L)
+        );
+    }
+
+    @Test
+    void shouldRejectAlreadyDeletedAnnonce() {
+
+        UserProfile user = new UserProfile();
+        user.setId(1L);
+        user.setSuspendu(false);
+
+        Annonce annonce = new Annonce();
+        annonce.setId(10L);
+        annonce.setVendeur(user);
+        annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(10L)).thenReturn(Optional.of(annonce));
+
+        assertThrows(
+                AnnonceModificationInterditeException.class,
+                () -> annonceService.delete(10L)
+        );
+    }
+
 
 }
