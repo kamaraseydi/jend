@@ -138,4 +138,18 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.CONFLICT)
                 .body(response);
     }
+
+    @ExceptionHandler(CategoryModificationInterditeException.class)
+    public ResponseEntity<ApiErrorResponse> handleCategoryModificationInterdite(
+            CategoryModificationInterditeException ex) {
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(new ApiErrorResponse(
+                        OffsetDateTime.now(),
+                        HttpStatus.CONFLICT.value(),
+                        "Category modification interdite",
+                        ex.getMessage()
+                ));
+    }
 }
