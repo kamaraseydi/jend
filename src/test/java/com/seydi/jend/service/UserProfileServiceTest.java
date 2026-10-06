@@ -1,0 +1,423 @@
+package com.seydi.jend.service;
+
+import com.seydi.jend.dto.request.UpdateProfileRequest;
+import com.seydi.jend.dto.response.MyProfileResponse;
+import com.seydi.jend.dto.response.UserProfileResponse;
+import com.seydi.jend.entity.Annonce;
+import com.seydi.jend.entity.Role;
+import com.seydi.jend.security.CurrentUserService;
+import com.seydi.jend.entity.StatutAnnonce;
+import com.seydi.jend.entity.UserProfile;
+import com.seydi.jend.exception.CompteSupprimeException;
+import com.seydi.jend.exception.ResourceNotFoundException;
+import com.seydi.jend.exception.UtilisateurSuspenduException;
+import com.seydi.jend.mapper.UserProfileMapper;
+import com.seydi.jend.repository.AnnonceRepository;
+import com.seydi.jend.repository.UserProfileRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class UserProfileServiceTest {
+
+    @Mock
+    private UserProfileRepository userProfileRepository;
+
+    @Mock
+    private UserProfileMapper userProfileMapper;
+
+    @Mock
+    private CurrentUserService currentUserService;
+
+    @Mock
+    private AnnonceRepository annonceRepository;
+
+    @InjectMocks
+    private UserProfileService userProfileService;
+
+    private UserProfile currentUser;
+
+    @BeforeEach
+    void setUp() {
+
+        currentUser = new UserProfile();
+
+        currentUser.setId(1L);
+        currentUser.setNom("Seydi");
+        currentUser.setEmail("seydi@example.com");
+        currentUser.setTelephone("771234567");
+        currentUser.setVille("Dakar");
+        currentUser.setEstProfessionnel(false);
+        currentUser.setSuspendu(false);
+        currentUser.setRole(Role.UTILISATEUR);
+        currentUser.setCreatedAt(OffsetDateTime.now());
+        currentUser.setUpdatedAt(OffsetDateTime.now());
+    }
+
+    @Test
+    void shouldGetMyProfile() {
+
+        MyProfileResponse response = new MyProfileResponse(
+                1L,
+                "Seydi",
+                "seydi@example.com",
+                "771234567",
+                "Dakar",
+                false,
+                false,
+                Role.UTILISATEUR,
+                currentUser.getCreatedAt(),
+                currentUser.getUpdatedAt()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(userProfileMapper.toMyProfileResponse(currentUser))
+                .thenReturn(response);
+
+        MyProfileResponse result =
+                userProfileService.getMyProfile();
+
+        assertEquals(response, result);
+
+        verify(currentUserService).getCurrentUser();
+        verify(userProfileMapper).toMyProfileResponse(currentUser);
+    }
+
+    @Test
+    void shouldNotGetMyProfileWhenAccountIsSuspended() {
+
+        currentUser.setSuspendu(true);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> userProfileService.getMyProfile()
+        );
+
+        verify(userProfileMapper, never())
+                .toMyProfileResponse(any());
+    }
+
+    @Test
+    void shouldNotGetMyProfileWhenAccountIsDeleted() {
+
+        currentUser.setDeletedAt(OffsetDateTime.now());
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> userProfileService.getMyProfile()
+        );
+
+        verify(userProfileMapper, never())
+                .toMyProfileResponse(any());
+    }
+
+    @Test
+    void shouldUpdateMyProfile() {
+
+        UpdateProfileRequest request =
+                new UpdateProfileRequest(
+                        "Nouveau Nom",
+                        "778765432",
+                        "Thiès"
+                );
+
+        MyProfileResponse response = new MyProfileResponse(
+                1L,
+                "Nouveau Nom",
+                "seydi@example.com",
+                "778765432",
+                "Thiès",
+                false,
+                false,
+                Role.UTILISATEUR,
+                currentUser.getCreatedAt(),
+                currentUser.getUpdatedAt()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(userProfileMapper.toMyProfileResponse(currentUser))
+                .thenReturn(response);
+
+        MyProfileResponse result =
+                userProfileService.updateMyProfile(request);
+
+        verify(userProfileMapper)
+                .updateEntity(currentUser, request);
+
+        verify(userProfileMapper)
+                .toMyProfileResponse(currentUser);
+
+        assertEquals(response, result);
+    }
+
+    @Test
+    void shouldGetPublicProfile() {
+
+        UserProfile user = new UserProfile();
+
+        user.setId(2L);
+        user.setNom("Moussa");
+        user.setTelephone("770000000");
+        user.setVille("Dakar");
+        user.setEstProfessionnel(true);
+        user.setRole(Role.UTILISATEUR);
+        user.setCreatedAt(OffsetDateTime.now());
+
+        UserProfileResponse response = new UserProfileResponse(
+                2L,
+                "Moussa",
+                "770000000",
+                "Dakar",
+                true,
+                Role.UTILISATEUR,
+                user.getCreatedAt()
+        );
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        when(userProfileMapper.toPublicResponse(user))
+                .thenReturn(response);
+
+        UserProfileResponse result =
+                userProfileService.getPublicProfile(2L);
+
+        assertEquals(response, result);
+
+        verify(userProfileMapper)
+                .toPublicResponse(user);
+    }
+
+    @Test
+    void shouldNotGetPublicProfileWhenUserDoesNotExist() {
+
+        when(userProfileRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.getPublicProfile(99L)
+        );
+    }
+
+    @Test
+    void shouldNotGetPublicProfileWhenAccountIsDeleted() {
+
+        UserProfile user = new UserProfile();
+
+        user.setId(2L);
+        user.setDeletedAt(OffsetDateTime.now());
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.getPublicProfile(2L)
+        );
+
+        verify(userProfileMapper, never())
+                .toPublicResponse(any());
+    }
+
+    @Test
+    void shouldSuspendUserAndSuspendPublishedAnnonces() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+        admin.setSuspendu(false);
+
+        UserProfile user = new UserProfile();
+        user.setId(2L);
+        user.setRole(Role.UTILISATEUR);
+        user.setSuspendu(false);
+
+        Annonce annonce1 = new Annonce();
+        annonce1.setId(10L);
+        annonce1.setStatut(StatutAnnonce.PUBLIEE);
+
+        Annonce annonce2 = new Annonce();
+        annonce2.setId(11L);
+        annonce2.setStatut(StatutAnnonce.PUBLIEE);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        when(annonceRepository.findByVendeurIdAndStatut(
+                2L,
+                StatutAnnonce.PUBLIEE
+        )).thenReturn(List.of(annonce1, annonce2));
+
+        userProfileService.suspendUser(2L);
+
+        assertTrue(user.isSuspendu());
+
+        assertEquals(
+                StatutAnnonce.SUSPENDUE,
+                annonce1.getStatut()
+        );
+
+        assertEquals(
+                StatutAnnonce.SUSPENDUE,
+                annonce2.getStatut()
+        );
+
+        verify(annonceRepository)
+                .findByVendeurIdAndStatut(
+                        2L,
+                        StatutAnnonce.PUBLIEE
+                );
+    }
+
+    @Test
+    void shouldNotSuspendUserWhenCurrentUserIsNotAdmin() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userProfileService.suspendUser(2L)
+        );
+
+        verify(userProfileRepository, never())
+                .findById(anyLong());
+
+        verify(annonceRepository, never())
+                .findByVendeurIdAndStatut(anyLong(), any());
+    }
+
+    @Test
+    void shouldNotSuspendOwnAccount() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(1L))
+                .thenReturn(Optional.of(admin));
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userProfileService.suspendUser(1L)
+        );
+    }
+
+    @Test
+    void shouldNotSuspendDeletedUser() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile deletedUser = new UserProfile();
+        deletedUser.setId(2L);
+        deletedUser.setDeletedAt(OffsetDateTime.now());
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(deletedUser));
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.suspendUser(2L)
+        );
+
+        verify(annonceRepository, never())
+                .findByVendeurIdAndStatut(anyLong(), any());
+    }
+
+    @Test
+    void shouldReactivateUser() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile user = new UserProfile();
+        user.setId(2L);
+        user.setSuspendu(true);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        userProfileService.reactivateUser(2L);
+
+        assertFalse(user.isSuspendu());
+
+        verify(userProfileRepository)
+                .findById(2L);
+    }
+
+    @Test
+    void shouldNotReactivateUserWhenCurrentUserIsNotAdmin() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userProfileService.reactivateUser(2L)
+        );
+
+        verify(userProfileRepository, never())
+                .findById(anyLong());
+    }
+
+    @Test
+    void shouldNotReactivateDeletedUser() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile deletedUser = new UserProfile();
+        deletedUser.setId(2L);
+        deletedUser.setDeletedAt(OffsetDateTime.now());
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(deletedUser));
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.reactivateUser(2L)
+        );
+    }
+}
