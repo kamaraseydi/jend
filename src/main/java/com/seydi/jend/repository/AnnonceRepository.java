@@ -15,4 +15,6 @@ public interface AnnonceRepository extends JpaRepository<Annonce, Long>, JpaSpec
             Long vendeurId,
             StatutAnnonce statut
     );
+
+    List<Annonce> findByVendeurId(Long vendeurId);
 }

@@ -420,4 +420,151 @@ class UserProfileServiceTest {
                 () -> userProfileService.reactivateUser(2L)
         );
     }
+
+    @Test
+    void shouldDeleteMyAccountAndDeleteAllMyAnnonces() {
+
+        Annonce annonce1 = new Annonce();
+        annonce1.setId(10L);
+        annonce1.setStatut(StatutAnnonce.PUBLIEE);
+
+        Annonce annonce2 = new Annonce();
+        annonce2.setId(11L);
+        annonce2.setStatut(StatutAnnonce.BROUILLON);
+
+        Annonce annonce3 = new Annonce();
+        annonce3.setId(12L);
+        annonce3.setStatut(StatutAnnonce.SUSPENDUE);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findByVendeurId(1L))
+                .thenReturn(List.of(annonce1, annonce2, annonce3));
+
+        userProfileService.deleteMyAccount();
+
+        assertNotNull(currentUser.getDeletedAt());
+
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce1.getStatut()
+        );
+
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce2.getStatut()
+        );
+
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce3.getStatut()
+        );
+
+        assertNotNull(annonce1.getUpdatedAt());
+        assertNotNull(annonce2.getUpdatedAt());
+        assertNotNull(annonce3.getUpdatedAt());
+
+        verify(currentUserService).getCurrentUser();
+        verify(annonceRepository).findByVendeurId(1L);
+    }
+
+    @Test
+    void shouldDeleteMyAccountEvenWhenUserHasNoAnnonces() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findByVendeurId(1L))
+                .thenReturn(List.of());
+
+        userProfileService.deleteMyAccount();
+
+        assertNotNull(currentUser.getDeletedAt());
+
+        verify(annonceRepository)
+                .findByVendeurId(1L);
+    }
+
+    @Test
+    void shouldNotDeleteAccountWhenAlreadyDeleted() {
+
+        currentUser.setDeletedAt(OffsetDateTime.now());
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                CompteSupprimeException.class,
+                () -> userProfileService.deleteMyAccount()
+        );
+
+        verify(annonceRepository, never())
+                .findByVendeurId(anyLong());
+    }
+
+    @Test
+    void shouldNotDeleteAccountWhenUserIsSuspended() {
+
+        currentUser.setSuspendu(true);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                UtilisateurSuspenduException.class,
+                () -> userProfileService.deleteMyAccount()
+        );
+
+        verify(annonceRepository, never())
+                .findByVendeurId(anyLong());
+    }
+
+    @Test
+    void shouldDeleteSoldAnnonceWhenDeletingAccount() {
+
+        Annonce annonce = new Annonce();
+        annonce.setId(20L);
+        annonce.setStatut(StatutAnnonce.VENDUE);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findByVendeurId(1L))
+                .thenReturn(List.of(annonce));
+
+        userProfileService.deleteMyAccount();
+
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce.getStatut()
+        );
+
+        assertNotNull(currentUser.getDeletedAt());
+    }
+
+    @Test
+    void shouldDeleteSuspendedAnnonceWhenDeletingAccount() {
+
+        Annonce annonce = new Annonce();
+        annonce.setId(21L);
+        annonce.setStatut(StatutAnnonce.SUSPENDUE);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        when(annonceRepository.findByVendeurId(1L))
+                .thenReturn(List.of(annonce));
+
+        userProfileService.deleteMyAccount();
+
+        assertEquals(
+                StatutAnnonce.SUPPRIMEE,
+                annonce.getStatut()
+        );
+
+        assertNotNull(currentUser.getDeletedAt());
+    }
+
+
 }

@@ -13,12 +13,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.OffsetDateTime;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 @WebMvcTest(UserProfileController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -174,4 +178,17 @@ class UserProfileControllerTest {
         verify(userProfileService)
                 .reactivateUser(2L);
     }
+
+    @Test
+    void shouldDeleteMyAccount() throws Exception {
+
+        doNothing().when(userProfileService).deleteMyAccount();
+
+        mockMvc.perform(delete("/api/users/me"))
+                .andExpect(status().isNoContent());
+
+        verify(userProfileService).deleteMyAccount();
+    }
+
+
 }
