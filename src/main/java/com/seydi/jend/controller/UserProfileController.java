@@ -1,6 +1,8 @@
 package com.seydi.jend.controller;
 
+import com.seydi.jend.dto.request.UpdateProfessionalStatusRequest;
 import com.seydi.jend.dto.request.UpdateProfileRequest;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import com.seydi.jend.dto.response.MyProfileResponse;
 import com.seydi.jend.dto.response.UserProfileResponse;
 import com.seydi.jend.service.UserProfileService;
@@ -8,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
@@ -55,5 +59,22 @@ public class UserProfileController {
             @PathVariable Long id
     ) {
         userProfileService.reactivateUser(id);
+    }
+
+    @PatchMapping("/{id}/professional")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateProfessionalStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateProfessionalStatusRequest request
+    ) {
+        userProfileService.updateProfessionalStatus(
+                id,
+                request.estProfessionnel()
+        );
+    }
+
+    @GetMapping
+    public List<AdminUserResponse> findAllUsers() {
+        return userProfileService.findAllUsers();
     }
 }

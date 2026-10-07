@@ -618,4 +618,6 @@ public class AnnonceService {
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
         annonce.setUpdatedAt(OffsetDateTime.now());
     }
+
+
 }

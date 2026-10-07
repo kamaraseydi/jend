@@ -11,14 +11,16 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
-import org.springframework.http.MediaType;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -189,6 +191,110 @@ class UserProfileControllerTest {
 
         verify(userProfileService).deleteMyAccount();
     }
+
+    @Test
+    void shouldUpdateProfessionalStatus() throws Exception {
+
+        doNothing()
+                .when(userProfileService)
+                .updateProfessionalStatus(2L, true);
+
+        mockMvc.perform(
+                        patch("/api/users/2/professional")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {
+                                        "estProfessionnel": true
+                                    }
+                                    """)
+                )
+                .andExpect(status().isNoContent());
+
+        verify(userProfileService)
+                .updateProfessionalStatus(2L, true);
+    }
+
+    @Test
+    void shouldRejectInvalidProfessionalStatus() throws Exception {
+
+        mockMvc.perform(
+                        patch("/api/users/2/professional")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                                    {}
+                                    """)
+                )
+                .andExpect(status().isBadRequest());
+
+        verify(userProfileService, never())
+                .updateProfessionalStatus(anyLong(), anyBoolean());
+    }
+
+    @Test
+    void shouldFindAllUsers() throws Exception {
+
+        AdminUserResponse user1 = new AdminUserResponse(
+                1L,
+                "Moussa",
+                "moussa@example.com",
+                "770000000",
+                "Dakar",
+                false,
+                false,
+                Role.UTILISATEUR,
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        AdminUserResponse user2 = new AdminUserResponse(
+                2L,
+                "Fatou",
+                "fatou@example.com",
+                "778888888",
+                "Thiès",
+                true,
+                false,
+                Role.UTILISATEUR,
+                OffsetDateTime.now(),
+                OffsetDateTime.now()
+        );
+
+        when(userProfileService.findAllUsers())
+                .thenReturn(List.of(user1, user2));
+
+        mockMvc.perform(
+                        get("/api/users")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].nom").value("Moussa"))
+                .andExpect(jsonPath("$[0].email").value("moussa@example.com"))
+                .andExpect(jsonPath("$[0].estProfessionnel").value(false))
+                .andExpect(jsonPath("$[1].id").value(2))
+                .andExpect(jsonPath("$[1].nom").value("Fatou"))
+                .andExpect(jsonPath("$[1].estProfessionnel").value(true));
+
+        verify(userProfileService)
+                .findAllUsers();
+    }
+
+    @Test
+    void shouldReturnEmptyUserList() throws Exception {
+
+        when(userProfileService.findAllUsers())
+                .thenReturn(List.of());
+
+        mockMvc.perform(
+                        get("/api/users")
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+
+        verify(userProfileService)
+                .findAllUsers();
+    }
+
+
 
 
 }
