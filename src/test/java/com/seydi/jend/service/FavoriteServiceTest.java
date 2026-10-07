@@ -1,6 +1,7 @@
 package com.seydi.jend.service;
 
 import com.seydi.jend.dto.response.AnnonceResponse;
+import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.FavoriteResponse;
 import com.seydi.jend.entity.Annonce;
 import com.seydi.jend.entity.Favorite;
@@ -10,7 +11,9 @@ import com.seydi.jend.entity.UserProfile;
 import com.seydi.jend.exception.FavoriteModificationInterditeException;
 import com.seydi.jend.exception.ResourceNotFoundException;
 import com.seydi.jend.mapper.AnnonceMapper;
+import com.seydi.jend.mapper.AnnonceImageMapper;
 import com.seydi.jend.repository.AnnonceRepository;
+import com.seydi.jend.repository.AnnonceImageRepository;
 import com.seydi.jend.repository.FavoriteRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,9 +48,15 @@ class FavoriteServiceTest {
     @Mock
     private AnnonceMapper annonceMapper;
 
+
     @InjectMocks
     private FavoriteService favoriteService;
 
+    @Mock
+    private AnnonceImageRepository annonceImageRepository;
+
+    @Mock
+    private AnnonceImageMapper annonceImageMapper;
 
     // =========================================================
     // ADD FAVORITE
@@ -297,6 +306,7 @@ class FavoriteServiceTest {
                         "Vendeur 1",
                         1L,
                         "Téléphones",
+                        List.of(),
                         null,
                         null
                 );
@@ -315,6 +325,7 @@ class FavoriteServiceTest {
                         "Vendeur 1",
                         1L,
                         "Téléphones",
+                        List.of(),
                         null,
                         null
                 );
@@ -325,10 +336,13 @@ class FavoriteServiceTest {
         when(favoriteRepository.findByUserId(1L))
                 .thenReturn(List.of(favorite1, favorite2));
 
-        when(annonceMapper.toResponse(annonce1))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(anyLong()))
+                .thenReturn(List.of());
+
+        when(annonceMapper.toResponse(eq(annonce1), anyList()))
                 .thenReturn(response1);
 
-        when(annonceMapper.toResponse(annonce2))
+        when(annonceMapper.toResponse(eq(annonce2), anyList()))
                 .thenReturn(response2);
 
         List<AnnonceResponse> result =
@@ -382,6 +396,7 @@ class FavoriteServiceTest {
                         "Vendeur",
                         1L,
                         "Téléphones",
+                        List.of(),
                         null,
                         null
                 );
@@ -392,7 +407,10 @@ class FavoriteServiceTest {
         when(favoriteRepository.findByUserId(1L))
                 .thenReturn(List.of(favorite1, favorite2));
 
-        when(annonceMapper.toResponse(publishedAnnonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(anyLong()))
+                .thenReturn(List.of());
+
+        when(annonceMapper.toResponse(eq(publishedAnnonce), anyList()))
                 .thenReturn(response);
 
         List<AnnonceResponse> result =
@@ -402,9 +420,9 @@ class FavoriteServiceTest {
         assertEquals(10L, result.get(0).id());
 
         verify(annonceMapper)
-                .toResponse(publishedAnnonce);
+                .toResponse(eq(publishedAnnonce), anyList());
 
         verify(annonceMapper, never())
-                .toResponse(suspendedAnnonce);
+                .toResponse(eq(suspendedAnnonce), anyList());
     }
 }

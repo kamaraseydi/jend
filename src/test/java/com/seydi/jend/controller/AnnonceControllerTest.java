@@ -23,6 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -57,6 +58,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );
@@ -91,6 +93,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );
@@ -124,6 +127,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );
@@ -157,6 +161,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );
@@ -205,6 +210,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );
@@ -325,6 +331,7 @@ class AnnonceControllerTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 null,
                 null
         );

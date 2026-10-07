@@ -2,9 +2,12 @@ package com.seydi.jend.mapper;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
+import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.entity.Annonce;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
 
 @Component
 public class AnnonceMapper {
@@ -22,8 +25,10 @@ public class AnnonceMapper {
         return annonce;
     }
 
-    public AnnonceResponse toResponse(Annonce annonce) {
-
+    public AnnonceResponse toResponse(
+            Annonce annonce,
+            List<AnnonceImageResponse> images
+    ) {
         return new AnnonceResponse(
                 annonce.getId(),
                 annonce.getTitre(),
@@ -37,6 +42,7 @@ public class AnnonceMapper {
                 annonce.getVendeur().getNom(),
                 annonce.getCategory().getId(),
                 annonce.getCategory().getNom(),
+                images,
                 annonce.getCreatedAt(),
                 annonce.getUpdatedAt()
         );
