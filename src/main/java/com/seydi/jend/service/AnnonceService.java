@@ -2,28 +2,32 @@ package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
+import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
+import com.seydi.jend.dto.response.PageResponse;
 import com.seydi.jend.entity.*;
 import com.seydi.jend.exception.*;
+import com.seydi.jend.mapper.AnnonceImageMapper;
 import com.seydi.jend.mapper.AnnonceMapper;
+import com.seydi.jend.repository.AnnonceImageRepository;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.CategoryRepository;
 import com.seydi.jend.repository.FavoriteRepository;
 import com.seydi.jend.security.CurrentUserService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import com.seydi.jend.dto.response.PageResponse;
 import com.seydi.jend.specification.AnnonceSpecification;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
-import java.util.List;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +38,13 @@ public class AnnonceService {
     private final CurrentUserService currentUserService;
     private final AnnonceMapper annonceMapper;
     private final FavoriteRepository favoriteRepository;
+    private final AnnonceImageRepository annonceImageRepository;
+    private final AnnonceImageMapper annonceImageMapper;
+
+
+    // =========================================================
+    // CREATE
+    // =========================================================
 
     @Transactional
     public AnnonceResponse create(CreateAnnonceRequest request) {
@@ -56,7 +67,8 @@ public class AnnonceService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "Catégorie introuvable"
-                        ));
+                        )
+                );
 
         Annonce annonce = annonceMapper.toEntity(request);
 
@@ -71,22 +83,68 @@ public class AnnonceService {
 
         Annonce savedAnnonce = annonceRepository.save(annonce);
 
-        return annonceMapper.toResponse(savedAnnonce);
+        return annonceMapper.toResponse(
+                savedAnnonce,
+                getImageResponses(savedAnnonce.getId())
+        );
     }
+
+
+    // =========================================================
+    // FIND BY ID
+    // =========================================================
 
     @Transactional(readOnly = true)
     public AnnonceResponse findById(Long id) {
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Annonce introuvable"));
+                        new ResourceNotFoundException(
+                                "Annonce introuvable"
+                        )
+                );
 
-        if (annonce.getStatut() != StatutAnnonce.PUBLIEE) {
-            throw new ResourceNotFoundException("Annonce introuvable");
+        /*
+         * Une annonce publiée ou vendue reste visible publiquement.
+         *
+         * BROUILLON    -> invisible
+         * PUBLIEE      -> visible
+         * SUSPENDUE    -> invisible
+         * VENDUE       -> visible
+         * SUPPRIMEE    -> invisible
+         */
+        if (annonce.getStatut() != StatutAnnonce.PUBLIEE
+                && annonce.getStatut() != StatutAnnonce.VENDUE) {
+
+            throw new ResourceNotFoundException(
+                    "Annonce introuvable"
+            );
         }
 
-        return annonceMapper.toResponse(annonce);
+        return annonceMapper.toResponse(
+                annonce,
+                getImageResponses(annonce.getId())
+        );
     }
+
+
+    // =========================================================
+    // IMAGES
+    // =========================================================
+
+    private List<AnnonceImageResponse> getImageResponses(Long annonceId) {
+
+        return annonceImageRepository
+                .findByAnnonceIdOrderByOrdreAsc(annonceId)
+                .stream()
+                .map(annonceImageMapper::toResponse)
+                .toList();
+    }
+
+
+    // =========================================================
+    // FIND ALL - PUBLIC
+    // =========================================================
 
     @Transactional(readOnly = true)
     public PageResponse<AnnonceResponse> findAll(
@@ -175,11 +233,13 @@ public class AnnonceService {
                         pageable
                 );
 
-        List<AnnonceResponse> content =
-                annonces.getContent()
-                        .stream()
-                        .map(annonceMapper::toResponse)
-                        .toList();
+        List<AnnonceResponse> content = annonces.getContent()
+                .stream()
+                .map(annonce -> annonceMapper.toResponse(
+                        annonce,
+                        getImageResponses(annonce.getId())
+                ))
+                .toList();
 
         return new PageResponse<>(
                 content,
@@ -189,6 +249,11 @@ public class AnnonceService {
                 annonces.getTotalPages()
         );
     }
+
+
+    // =========================================================
+    // FIND MY ANNONCES
+    // =========================================================
 
     @Transactional(readOnly = true)
     public PageResponse<AnnonceResponse> findMyAnnonces(
@@ -209,7 +274,8 @@ public class AnnonceService {
             );
         }
 
-        UserProfile currentUser = currentUserService.getCurrentUser();
+        UserProfile currentUser =
+                currentUserService.getCurrentUser();
 
         Specification<Annonce> specification =
                 AnnonceSpecification.parVendeur(
@@ -237,11 +303,13 @@ public class AnnonceService {
                         pageable
                 );
 
-        List<AnnonceResponse> content =
-                annonces.getContent()
-                        .stream()
-                        .map(annonceMapper::toResponse)
-                        .toList();
+        List<AnnonceResponse> content = annonces.getContent()
+                .stream()
+                .map(annonce -> annonceMapper.toResponse(
+                        annonce,
+                        getImageResponses(annonce.getId())
+                ))
+                .toList();
 
         return new PageResponse<>(
                 content,
@@ -252,6 +320,11 @@ public class AnnonceService {
         );
     }
 
+
+    // =========================================================
+    // UPDATE
+    // =========================================================
+
     @Transactional
     public AnnonceResponse update(
             Long id,
@@ -260,7 +333,6 @@ public class AnnonceService {
 
         UserProfile currentUser =
                 currentUserService.getCurrentUser();
-
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
@@ -271,6 +343,7 @@ public class AnnonceService {
 
         if (annonce.getStatut() == StatutAnnonce.VENDUE
                 || annonce.getStatut() == StatutAnnonce.SUPPRIMEE) {
+
             throw new AnnonceModificationInterditeException(
                     "Cette annonce ne peut plus être modifiée"
             );
@@ -315,20 +388,33 @@ public class AnnonceService {
         Annonce updatedAnnonce =
                 annonceRepository.save(annonce);
 
-        return annonceMapper.toResponse(updatedAnnonce);
+        return annonceMapper.toResponse(
+                updatedAnnonce,
+                getImageResponses(updatedAnnonce.getId())
+        );
     }
 
+
+    // =========================================================
+    // PUBLISH
+    // =========================================================
 
     @Transactional
     public AnnonceResponse publish(Long id) {
 
-        UserProfile currentUser = currentUserService.getCurrentUser();
+        UserProfile currentUser =
+                currentUserService.getCurrentUser();
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Annonce introuvable"));
+                        new ResourceNotFoundException(
+                                "Annonce introuvable"
+                        )
+                );
 
-        if (!annonce.getVendeur().getId().equals(currentUser.getId())) {
+        if (!annonce.getVendeur().getId()
+                .equals(currentUser.getId())) {
+
             throw new AccessDeniedException(
                     "Vous n'êtes pas autorisé à publier cette annonce"
             );
@@ -357,21 +443,36 @@ public class AnnonceService {
         annonce.setStatut(StatutAnnonce.PUBLIEE);
         annonce.setUpdatedAt(OffsetDateTime.now());
 
-        Annonce publishedAnnonce = annonceRepository.save(annonce);
+        Annonce publishedAnnonce =
+                annonceRepository.save(annonce);
 
-        return annonceMapper.toResponse(publishedAnnonce);
+        return annonceMapper.toResponse(
+                publishedAnnonce,
+                getImageResponses(publishedAnnonce.getId())
+        );
     }
+
+
+    // =========================================================
+    // PAUSE
+    // =========================================================
 
     @Transactional
     public AnnonceResponse pause(Long id) {
 
-        UserProfile currentUser = currentUserService.getCurrentUser();
+        UserProfile currentUser =
+                currentUserService.getCurrentUser();
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Annonce introuvable"));
+                        new ResourceNotFoundException(
+                                "Annonce introuvable"
+                        )
+                );
 
-        if (!annonce.getVendeur().getId().equals(currentUser.getId())) {
+        if (!annonce.getVendeur().getId()
+                .equals(currentUser.getId())) {
+
             throw new AccessDeniedException(
                     "Vous n'êtes pas autorisé à suspendre cette annonce"
             );
@@ -390,6 +491,7 @@ public class AnnonceService {
         }
 
         if (annonce.getStatut() != StatutAnnonce.PUBLIEE) {
+
             throw new InvalidAnnonceStatusTransitionException(
                     "Cette annonce ne peut pas être suspendue depuis son statut actuel"
             );
@@ -398,21 +500,36 @@ public class AnnonceService {
         annonce.setStatut(StatutAnnonce.SUSPENDUE);
         annonce.setUpdatedAt(OffsetDateTime.now());
 
-        Annonce pausedAnnonce = annonceRepository.save(annonce);
+        Annonce pausedAnnonce =
+                annonceRepository.save(annonce);
 
-        return annonceMapper.toResponse(pausedAnnonce);
+        return annonceMapper.toResponse(
+                pausedAnnonce,
+                getImageResponses(pausedAnnonce.getId())
+        );
     }
+
+
+    // =========================================================
+    // SOLD
+    // =========================================================
 
     @Transactional
     public AnnonceResponse sold(Long id) {
 
-        UserProfile currentUser = currentUserService.getCurrentUser();
+        UserProfile currentUser =
+                currentUserService.getCurrentUser();
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Annonce introuvable"));
+                        new ResourceNotFoundException(
+                                "Annonce introuvable"
+                        )
+                );
 
-        if (!annonce.getVendeur().getId().equals(currentUser.getId())) {
+        if (!annonce.getVendeur().getId()
+                .equals(currentUser.getId())) {
+
             throw new AccessDeniedException(
                     "Vous n'êtes pas autorisé à marquer cette annonce comme vendue"
             );
@@ -431,6 +548,7 @@ public class AnnonceService {
         }
 
         if (annonce.getStatut() != StatutAnnonce.PUBLIEE) {
+
             throw new InvalidAnnonceStatusTransitionException(
                     "Cette annonce ne peut pas être marquée comme vendue depuis son statut actuel"
             );
@@ -439,21 +557,36 @@ public class AnnonceService {
         annonce.setStatut(StatutAnnonce.VENDUE);
         annonce.setUpdatedAt(OffsetDateTime.now());
 
-        Annonce soldAnnonce = annonceRepository.save(annonce);
+        Annonce soldAnnonce =
+                annonceRepository.save(annonce);
 
-        return annonceMapper.toResponse(soldAnnonce);
+        return annonceMapper.toResponse(
+                soldAnnonce,
+                getImageResponses(soldAnnonce.getId())
+        );
     }
+
+
+    // =========================================================
+    // DELETE
+    // =========================================================
 
     @Transactional
     public void delete(Long id) {
 
-        UserProfile currentUser = currentUserService.getCurrentUser();
+        UserProfile currentUser =
+                currentUserService.getCurrentUser();
 
         Annonce annonce = annonceRepository.findById(id)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException("Annonce introuvable"));
+                        new ResourceNotFoundException(
+                                "Annonce introuvable"
+                        )
+                );
 
-        if (!annonce.getVendeur().getId().equals(currentUser.getId())) {
+        if (!annonce.getVendeur().getId()
+                .equals(currentUser.getId())) {
+
             throw new AccessDeniedException(
                     "Vous n'êtes pas autorisé à supprimer cette annonce"
             );
@@ -472,16 +605,17 @@ public class AnnonceService {
         }
 
         if (annonce.getStatut() == StatutAnnonce.SUPPRIMEE) {
+
             throw new AnnonceModificationInterditeException(
                     "Cette annonce est déjà supprimée"
             );
         }
 
+        // Les favoris doivent être supprimés explicitement
+        // car la suppression de l'annonce est logique.
         favoriteRepository.deleteByAnnonceId(id);
 
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
         annonce.setUpdatedAt(OffsetDateTime.now());
     }
-
-
 }

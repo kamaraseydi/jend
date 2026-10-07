@@ -2,11 +2,14 @@ package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
+import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.dto.response.PageResponse;
 import com.seydi.jend.entity.*;
 import com.seydi.jend.exception.*;
+import com.seydi.jend.mapper.AnnonceImageMapper;
 import com.seydi.jend.mapper.AnnonceMapper;
+import com.seydi.jend.repository.AnnonceImageRepository;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.CategoryRepository;
 import com.seydi.jend.repository.FavoriteRepository;
@@ -31,6 +34,9 @@ import org.springframework.security.access.AccessDeniedException;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -51,6 +57,12 @@ class AnnonceServiceTest {
 
     @Mock
     private FavoriteRepository favoriteRepository;
+
+    @Mock
+    private AnnonceImageRepository annonceImageRepository;
+
+    @Mock
+    private AnnonceImageMapper annonceImageMapper;
 
     @InjectMocks
     private AnnonceService annonceService;
@@ -104,6 +116,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -120,7 +133,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(expectedResponse);
 
         AnnonceResponse response = annonceService.create(request);
@@ -138,7 +158,7 @@ class AnnonceServiceTest {
         verify(categoryRepository).findById(10L);
         verify(annonceMapper).toEntity(request);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -216,6 +236,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -223,7 +244,14 @@ class AnnonceServiceTest {
         when(annonceRepository.findById(1L))
                 .thenReturn(Optional.of(annonce));
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result = annonceService.findById(1L);
@@ -233,7 +261,7 @@ class AnnonceServiceTest {
         assertEquals(StatutAnnonce.PUBLIEE, result.statut());
 
         verify(annonceRepository).findById(1L);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -291,6 +319,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -306,7 +335,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -356,6 +392,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -365,7 +402,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -409,6 +453,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -418,7 +463,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -466,6 +518,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -475,7 +528,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -524,6 +584,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -533,7 +594,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -581,6 +649,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -590,7 +659,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -682,6 +758,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -694,7 +771,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -757,6 +841,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 2L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -769,7 +854,14 @@ class AnnonceServiceTest {
                 any(Pageable.class)
         )).thenReturn(page);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         PageResponse<AnnonceResponse> result =
@@ -833,6 +925,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -859,7 +952,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -881,7 +981,7 @@ class AnnonceServiceTest {
         verify(categoryRepository).findById(10L);
         verify(annonceMapper).updateEntity(annonce, request);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1159,6 +1259,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -1188,7 +1289,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -1209,7 +1317,7 @@ class AnnonceServiceTest {
         verify(categoryRepository).findById(10L);
         verify(annonceMapper).updateEntity(annonce, request);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1235,6 +1343,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -1248,7 +1357,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -1265,7 +1381,7 @@ class AnnonceServiceTest {
         verify(currentUserService).getCurrentUser();
         verify(annonceRepository).findById(100L);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1291,6 +1407,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -1304,7 +1421,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -1318,7 +1442,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1338,7 +1462,7 @@ class AnnonceServiceTest {
         verify(annonceRepository).findById(999L);
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1365,7 +1489,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1391,7 +1515,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1417,7 +1541,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1446,7 +1570,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1470,7 +1594,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1494,7 +1618,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1520,6 +1644,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -1533,7 +1658,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -1549,7 +1681,7 @@ class AnnonceServiceTest {
         verify(currentUserService).getCurrentUser();
         verify(annonceRepository).findById(100L);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1569,7 +1701,7 @@ class AnnonceServiceTest {
         verify(annonceRepository).findById(999L);
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1596,7 +1728,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1622,7 +1754,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1648,7 +1780,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1743,6 +1875,7 @@ class AnnonceServiceTest {
                 "Seydi",
                 10L,
                 "Téléphones",
+                List.of(),
                 OffsetDateTime.now(),
                 OffsetDateTime.now()
         );
@@ -1756,7 +1889,14 @@ class AnnonceServiceTest {
         when(annonceRepository.save(annonce))
                 .thenReturn(annonce);
 
-        when(annonceMapper.toResponse(annonce))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(annonce.getId()))
+
+
+                .thenReturn(List.of());
+
+
+
+        when(annonceMapper.toResponse(eq(annonce), anyList()))
                 .thenReturn(response);
 
         AnnonceResponse result =
@@ -1772,7 +1912,7 @@ class AnnonceServiceTest {
         verify(currentUserService).getCurrentUser();
         verify(annonceRepository).findById(100L);
         verify(annonceRepository).save(annonce);
-        verify(annonceMapper).toResponse(annonce);
+        verify(annonceMapper).toResponse(eq(annonce), anyList());
     }
 
     @Test
@@ -1791,7 +1931,7 @@ class AnnonceServiceTest {
 
         verify(annonceRepository).findById(999L);
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1818,7 +1958,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1844,7 +1984,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test
@@ -1870,7 +2010,7 @@ class AnnonceServiceTest {
         );
 
         verify(annonceRepository, never()).save(any());
-        verify(annonceMapper, never()).toResponse(any());
+        verify(annonceMapper, never()).toResponse(any(), anyList());
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.seydi.jend.entity.StatutAnnonce;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 public record AnnonceResponse(
         Long id,
@@ -19,7 +20,7 @@ public record AnnonceResponse(
         String vendeurNom,
         Long categoryId,
         String categoryNom,
+        List<AnnonceImageResponse> images,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
-) {
-}
+) {}

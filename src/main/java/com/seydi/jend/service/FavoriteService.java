@@ -1,17 +1,20 @@
 package com.seydi.jend.service;
 
+import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.dto.response.FavoriteResponse;
 import com.seydi.jend.entity.Annonce;
-import com.seydi.jend.exception.FavoriteModificationInterditeException;
-import com.seydi.jend.security.CurrentUserService;
 import com.seydi.jend.entity.Favorite;
 import com.seydi.jend.entity.StatutAnnonce;
 import com.seydi.jend.entity.UserProfile;
+import com.seydi.jend.exception.FavoriteModificationInterditeException;
 import com.seydi.jend.exception.ResourceNotFoundException;
+import com.seydi.jend.mapper.AnnonceImageMapper;
 import com.seydi.jend.mapper.AnnonceMapper;
+import com.seydi.jend.repository.AnnonceImageRepository;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.repository.FavoriteRepository;
+import com.seydi.jend.security.CurrentUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,8 @@ public class FavoriteService {
     private final AnnonceRepository annonceRepository;
     private final CurrentUserService currentUserService;
     private final AnnonceMapper annonceMapper;
+    private final AnnonceImageRepository annonceImageRepository;
+    private final AnnonceImageMapper annonceImageMapper;
 
     @Transactional
     public FavoriteResponse addFavorite(Long annonceId) {
@@ -110,7 +115,23 @@ public class FavoriteService {
                 .map(Favorite::getAnnonce)
                 .filter(annonce ->
                         annonce.getStatut() == StatutAnnonce.PUBLIEE)
-                .map(annonceMapper::toResponse)
+                .map(annonce -> {
+                    List<AnnonceImageResponse> images =
+                            annonceImageRepository
+                                    .findByAnnonceIdOrderByOrdreAsc(
+                                            annonce.getId()
+                                    )
+                                    .stream()
+                                    .map(annonceImageMapper::toResponse)
+                                    .toList();
+
+                    return annonceMapper.toResponse(
+                            annonce,
+                            images
+                    );
+                })
                 .toList();
     }
+
+
 }
