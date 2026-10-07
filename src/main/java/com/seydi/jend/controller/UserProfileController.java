@@ -28,6 +28,12 @@ public class UserProfileController {
         return userProfileService.updateMyProfile(request);
     }
 
+    @DeleteMapping("/me")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteMyAccount() {
+        userProfileService.deleteMyAccount();
+    }
+
     @GetMapping("/{id}")
     public UserProfileResponse getPublicProfile(
             @PathVariable Long id

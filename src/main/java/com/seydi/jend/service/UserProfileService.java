@@ -162,4 +162,25 @@ public class UserProfileService {
             );
         }
     }
+
+    @Transactional
+    public void deleteMyAccount() {
+
+        UserProfile currentUser = currentUserService.getCurrentUser();
+
+        checkAccountActive(currentUser);
+
+        List<Annonce> annonces =
+                annonceRepository.findByVendeurId(currentUser.getId());
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        for (Annonce annonce : annonces) {
+            annonce.setStatut(StatutAnnonce.SUPPRIMEE);
+            annonce.setUpdatedAt(now);
+        }
+
+        currentUser.setDeletedAt(now);
+        currentUser.setUpdatedAt(now);
+    }
 }
