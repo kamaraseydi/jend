@@ -1,6 +1,7 @@
 package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.UpdateProfileRequest;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import com.seydi.jend.dto.response.MyProfileResponse;
 import com.seydi.jend.dto.response.UserProfileResponse;
 import com.seydi.jend.entity.Annonce;
@@ -564,6 +565,289 @@ class UserProfileServiceTest {
         );
 
         assertNotNull(currentUser.getDeletedAt());
+    }
+
+    @Test
+    void shouldMakeUserProfessional() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile user = new UserProfile();
+        user.setId(2L);
+        user.setRole(Role.UTILISATEUR);
+        user.setEstProfessionnel(false);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        userProfileService.updateProfessionalStatus(2L, true);
+
+        assertTrue(user.isEstProfessionnel());
+        assertNotNull(user.getUpdatedAt());
+
+        verify(userProfileRepository)
+                .findById(2L);
+    }
+
+    @Test
+    void shouldRemoveProfessionalStatus() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile user = new UserProfile();
+        user.setId(2L);
+        user.setRole(Role.UTILISATEUR);
+        user.setEstProfessionnel(true);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(user));
+
+        userProfileService.updateProfessionalStatus(2L, false);
+
+        assertFalse(user.isEstProfessionnel());
+        assertNotNull(user.getUpdatedAt());
+    }
+
+    @Test
+    void shouldNotUpdateProfessionalStatusWhenCurrentUserIsNotAdmin() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userProfileService.updateProfessionalStatus(2L, true)
+        );
+
+        verify(userProfileRepository, never())
+                .findById(anyLong());
+    }
+
+    @Test
+    void shouldNotUpdateProfessionalStatusWhenUserDoesNotExist() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(99L))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.updateProfessionalStatus(99L, true)
+        );
+    }
+
+    @Test
+    void shouldNotUpdateProfessionalStatusWhenUserIsDeleted() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile deletedUser = new UserProfile();
+        deletedUser.setId(2L);
+        deletedUser.setDeletedAt(OffsetDateTime.now());
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findById(2L))
+                .thenReturn(Optional.of(deletedUser));
+
+        assertThrows(
+                ResourceNotFoundException.class,
+                () -> userProfileService.updateProfessionalStatus(2L, true)
+        );
+    }
+
+    @Test
+    void shouldFindAllUsersAsAdmin() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile user1 = new UserProfile();
+        user1.setId(2L);
+        user1.setNom("Moussa");
+        user1.setEmail("moussa@example.com");
+        user1.setRole(Role.UTILISATEUR);
+        user1.setEstProfessionnel(false);
+        user1.setSuspendu(false);
+        user1.setCreatedAt(OffsetDateTime.now());
+        user1.setUpdatedAt(OffsetDateTime.now());
+
+        UserProfile user2 = new UserProfile();
+        user2.setId(3L);
+        user2.setNom("Fatou");
+        user2.setEmail("fatou@example.com");
+        user2.setRole(Role.UTILISATEUR);
+        user2.setEstProfessionnel(true);
+        user2.setSuspendu(false);
+        user2.setCreatedAt(OffsetDateTime.now());
+        user2.setUpdatedAt(OffsetDateTime.now());
+
+        AdminUserResponse response1 = new AdminUserResponse(
+                2L,
+                "Moussa",
+                "moussa@example.com",
+                null,
+                null,
+                false,
+                false,
+                Role.UTILISATEUR,
+                user1.getCreatedAt(),
+                user1.getUpdatedAt()
+        );
+
+        AdminUserResponse response2 = new AdminUserResponse(
+                3L,
+                "Fatou",
+                "fatou@example.com",
+                null,
+                null,
+                true,
+                false,
+                Role.UTILISATEUR,
+                user2.getCreatedAt(),
+                user2.getUpdatedAt()
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findAll())
+                .thenReturn(List.of(user1, user2));
+
+        when(userProfileMapper.toAdminResponse(user1))
+                .thenReturn(response1);
+
+        when(userProfileMapper.toAdminResponse(user2))
+                .thenReturn(response2);
+
+        List<AdminUserResponse> result =
+                userProfileService.findAllUsers();
+
+        assertEquals(2, result.size());
+
+        assertEquals("Moussa", result.get(0).nom());
+        assertEquals("Fatou", result.get(1).nom());
+
+        verify(userProfileRepository).findAll();
+        verify(userProfileMapper).toAdminResponse(user1);
+        verify(userProfileMapper).toAdminResponse(user2);
+    }
+
+    @Test
+    void shouldExcludeDeletedUsers() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        UserProfile activeUser = new UserProfile();
+        activeUser.setId(2L);
+        activeUser.setNom("Moussa");
+        activeUser.setRole(Role.UTILISATEUR);
+
+        UserProfile deletedUser = new UserProfile();
+        deletedUser.setId(3L);
+        deletedUser.setNom("Fatou");
+        deletedUser.setRole(Role.UTILISATEUR);
+        deletedUser.setDeletedAt(OffsetDateTime.now());
+
+        AdminUserResponse response = new AdminUserResponse(
+                2L,
+                "Moussa",
+                null,
+                null,
+                null,
+                false,
+                false,
+                Role.UTILISATEUR,
+                null,
+                null
+        );
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findAll())
+                .thenReturn(List.of(activeUser, deletedUser));
+
+        when(userProfileMapper.toAdminResponse(activeUser))
+                .thenReturn(response);
+
+        List<AdminUserResponse> result =
+                userProfileService.findAllUsers();
+
+        assertEquals(1, result.size());
+        assertEquals(2L, result.get(0).id());
+        assertEquals("Moussa", result.get(0).nom());
+
+        verify(userProfileMapper)
+                .toAdminResponse(activeUser);
+
+        verify(userProfileMapper, never())
+                .toAdminResponse(deletedUser);
+    }
+
+    @Test
+    void shouldNotFindAllUsersWhenCurrentUserIsNotAdmin() {
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(currentUser);
+
+        assertThrows(
+                AccessDeniedException.class,
+                () -> userProfileService.findAllUsers()
+        );
+
+        verify(userProfileRepository, never())
+                .findAll();
+
+        verify(userProfileMapper, never())
+                .toAdminResponse(any());
+    }
+
+    @Test
+    void shouldReturnEmptyListWhenThereAreNoActiveUsers() {
+
+        UserProfile admin = new UserProfile();
+        admin.setId(1L);
+        admin.setRole(Role.ADMIN);
+
+        when(currentUserService.getCurrentUser())
+                .thenReturn(admin);
+
+        when(userProfileRepository.findAll())
+                .thenReturn(List.of());
+
+        List<AdminUserResponse> result =
+                userProfileService.findAllUsers();
+
+        assertTrue(result.isEmpty());
+
+        verify(userProfileRepository)
+                .findAll();
+
+        verify(userProfileMapper, never())
+                .toAdminResponse(any());
     }
 
 

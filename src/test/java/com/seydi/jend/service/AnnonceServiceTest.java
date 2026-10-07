@@ -2,6 +2,7 @@ package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.dto.response.PageResponse;
@@ -2232,6 +2233,7 @@ class AnnonceServiceTest {
                 () -> annonceService.delete(10L)
         );
     }
+
 
 
 }

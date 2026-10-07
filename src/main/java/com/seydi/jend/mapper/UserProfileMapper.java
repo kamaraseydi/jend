@@ -1,6 +1,7 @@
 package com.seydi.jend.mapper;
 
 import com.seydi.jend.dto.request.UpdateProfileRequest;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import com.seydi.jend.dto.response.MyProfileResponse;
 import com.seydi.jend.dto.response.UserProfileResponse;
 import com.seydi.jend.entity.UserProfile;
@@ -54,5 +55,21 @@ public class UserProfileMapper {
         if (request.ville() != null) {
             user.setVille(request.ville());
         }
+    }
+
+    public AdminUserResponse toAdminResponse(UserProfile user) {
+
+        return new AdminUserResponse(
+                user.getId(),
+                user.getNom(),
+                user.getEmail(),
+                user.getTelephone(),
+                user.getVille(),
+                user.isEstProfessionnel(),
+                user.isSuspendu(),
+                user.getRole(),
+                user.getCreatedAt(),
+                user.getUpdatedAt()
+        );
     }
 }

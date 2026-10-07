@@ -1,6 +1,7 @@
 package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.UpdateProfileRequest;
+import com.seydi.jend.dto.response.AdminUserResponse;
 import com.seydi.jend.dto.response.MyProfileResponse;
 import com.seydi.jend.dto.response.UserProfileResponse;
 import com.seydi.jend.entity.Role;
@@ -182,5 +183,46 @@ public class UserProfileService {
 
         currentUser.setDeletedAt(now);
         currentUser.setUpdatedAt(now);
+    }
+
+    @Transactional
+    public void updateProfessionalStatus(
+            Long id,
+            boolean estProfessionnel
+    ) {
+
+        UserProfile admin = currentUserService.getCurrentUser();
+
+        checkAdmin(admin);
+
+        UserProfile user = userProfileRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Utilisateur introuvable"
+                        )
+                );
+
+        if (user.getDeletedAt() != null) {
+            throw new ResourceNotFoundException(
+                    "Utilisateur introuvable"
+            );
+        }
+
+        user.setEstProfessionnel(estProfessionnel);
+        user.setUpdatedAt(OffsetDateTime.now());
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminUserResponse> findAllUsers() {
+
+        UserProfile admin = currentUserService.getCurrentUser();
+
+        checkAdmin(admin);
+
+        return userProfileRepository.findAll()
+                .stream()
+                .filter(user -> user.getDeletedAt() == null)
+                .map(userProfileMapper::toAdminResponse)
+                .toList();
     }
 }
