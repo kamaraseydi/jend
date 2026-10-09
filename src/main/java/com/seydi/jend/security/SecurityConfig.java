@@ -13,18 +13,57 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity http)
+            throws Exception {
 
         http
                 .csrf(csrf -> csrf.disable())
+
                 .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
                 )
+
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/annonces/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+
+                        // Mes annonces : authentification obligatoire
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/annonces/me"
+                        ).authenticated()
+
+                        // Consultation publique des annonces
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/annonces",
+                                "/api/annonces/*"
+                        ).permitAll()
+
+                        // Mon profil : authentification obligatoire
+                        .requestMatchers(
+                                "/api/users/me"
+                        ).authenticated()
+
+                        // Liste des utilisateurs : authentification obligatoire
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/users"
+                        ).authenticated()
+
+                        // Profil public d'un utilisateur
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/users/*"
+                        ).permitAll()
+
+                        // Consultation publique des catégories
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/categories",
+                                "/api/categories/*"
+                        ).permitAll()
+
+                        // Toutes les autres routes sont protégées
                         .anyRequest().authenticated()
+
                 )
+
                 .oauth2ResourceServer(oauth2 ->
                         oauth2.jwt(jwt -> {})
                 );
