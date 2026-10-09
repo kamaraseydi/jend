@@ -154,7 +154,7 @@ public class AnnonceService {
             BigDecimal minPrice,
             BigDecimal maxPrice,
             EtatAnnonce etat,
-            int page,
+            TriAnnonce sort, int page,
             int size
     ) {
 
@@ -218,14 +218,17 @@ public class AnnonceService {
             );
         }
 
-        Pageable pageable = PageRequest.of(
-                page,
-                size,
-                Sort.by(
-                        Sort.Direction.DESC,
-                        "createdAt"
-                )
-        );
+
+        Sort tri = switch (sort) {
+            case PRICE_ASC -> Sort.by(Sort.Direction.ASC, "prix")
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case PRICE_DESC -> Sort.by(Sort.Direction.DESC, "prix")
+                    .and(Sort.by(Sort.Direction.DESC, "createdAt"));
+            case RECENT -> Sort.by(Sort.Direction.DESC, "createdAt");
+        };
+
+        Pageable pageable = PageRequest.of(page, size, tri);
+
 
         Page<Annonce> annonces =
                 annonceRepository.findAll(

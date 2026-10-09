@@ -12,7 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import com.seydi.jend.dto.response.PageResponse;
 import org.springframework.web.bind.annotation.RequestParam;
-
+import com.seydi.jend.entity.TriAnnonce;
 import java.math.BigDecimal;
 
 @RestController
@@ -43,6 +43,7 @@ public class AnnonceController {
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(required = false) EtatAnnonce etat,
+            @RequestParam(defaultValue = "RECENT") TriAnnonce sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
@@ -54,6 +55,7 @@ public class AnnonceController {
                 minPrice,
                 maxPrice,
                 etat,
+                sort,
                 page,
                 size
         );
