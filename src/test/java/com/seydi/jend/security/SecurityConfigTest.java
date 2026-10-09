@@ -6,7 +6,11 @@ import com.seydi.jend.service.AnnonceService;
 import com.seydi.jend.service.UserProfileService;
 
 import org.junit.jupiter.api.Test;
+import com.seydi.jend.security.CorsConfig;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -22,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         AnnonceController.class,
         UserProfileController.class
 })
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, CorsConfig.class})
 class SecurityConfigTest {
 
     @Autowired
@@ -76,5 +80,33 @@ class SecurityConfigTest {
         mockMvc.perform(get("/api/users/123")
                         .accept(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldAllowCorsPreflightFromConfiguredFrontend()
+            throws Exception {
+
+        mockMvc.perform(options("/api/annonces")
+                        .header(
+                                "Origin",
+                                "http://localhost:5173"
+                        )
+                        .header(
+                                "Access-Control-Request-Method",
+                                "GET"
+                        )
+                        .header(
+                                "Access-Control-Request-Headers",
+                                "Authorization, Content-Type"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Methods",
+                        containsString("GET")
+                ));
     }
 }

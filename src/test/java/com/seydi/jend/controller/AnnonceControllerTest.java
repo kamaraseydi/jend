@@ -7,10 +7,9 @@ import com.seydi.jend.entity.StatutAnnonce;
 import com.seydi.jend.service.AnnonceService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
 import com.seydi.jend.dto.response.PageResponse;
-import com.seydi.jend.controller.*;
+import com.seydi.jend.entity.TriAnnonce;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -41,6 +40,8 @@ class AnnonceControllerTest {
 
     @MockitoBean
     private AnnonceService annonceService;
+
+    private final TriAnnonce sort = TriAnnonce.RECENT;
 
     @Test
     void shouldPublishAnnonce() throws Exception {
@@ -247,7 +248,7 @@ class AnnonceControllerTest {
                 new BigDecimal("100000"),
                 new BigDecimal("500000"),
                 EtatAnnonce.TRES_BON_ETAT,
-                0,
+                sort, 0,
                 20
         )).thenReturn(response);
 
@@ -275,7 +276,7 @@ class AnnonceControllerTest {
                 new BigDecimal("100000"),
                 new BigDecimal("500000"),
                 EtatAnnonce.TRES_BON_ETAT,
-                0,
+                sort, 0,
                 20
         );
     }

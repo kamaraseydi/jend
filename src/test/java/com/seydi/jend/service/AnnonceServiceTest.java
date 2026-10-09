@@ -2,8 +2,6 @@ package com.seydi.jend.service;
 
 import com.seydi.jend.dto.request.CreateAnnonceRequest;
 import com.seydi.jend.dto.request.UpdateAnnonceRequest;
-import com.seydi.jend.dto.response.AdminUserResponse;
-import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.dto.response.AnnonceResponse;
 import com.seydi.jend.dto.response.PageResponse;
 import com.seydi.jend.entity.*;
@@ -67,6 +65,8 @@ class AnnonceServiceTest {
 
     @InjectMocks
     private AnnonceService annonceService;
+
+    private final TriAnnonce sort = TriAnnonce.RECENT;
 
     private UserProfile user;
     private Category category;
@@ -353,7 +353,7 @@ class AnnonceServiceTest {
                         null,
                         null,
                         null,
-                        0,
+                        sort, 0,
                         20);
 
         assertEquals(1, result.content().size());
@@ -420,7 +420,7 @@ class AnnonceServiceTest {
                         null,
                         null,
                         null,
-                        0,
+                        sort, 0,
                         20);
 
         assertEquals(1, result.content().size());
@@ -482,7 +482,7 @@ class AnnonceServiceTest {
                         new BigDecimal("100000"),
                         null,
                         null,
-                        0,
+                        sort, 0,
                         20
                 );
 
@@ -547,7 +547,7 @@ class AnnonceServiceTest {
                         null,
                         new BigDecimal("300000"),
                         null,
-                        0,
+                        sort, 0,
                         20
                 );
 
@@ -613,7 +613,7 @@ class AnnonceServiceTest {
                         null,
                         null,
                         EtatAnnonce.COMME_NEUF,
-                        0,
+                        sort, 0,
                         20
                 );
 
@@ -678,7 +678,7 @@ class AnnonceServiceTest {
                         null,
                         null,
                         null,
-                        0,
+                        sort, 0,
                         20
                 );
 
@@ -701,7 +701,7 @@ class AnnonceServiceTest {
                         new BigDecimal("500000"),
                         new BigDecimal("100000"),
                         null,
-                        0,
+                        sort, 0,
                         20
                 )
         );
@@ -721,7 +721,7 @@ class AnnonceServiceTest {
                         null,
                         null,
                         null,
-                        0,
+                        sort, 0,
                         51
                 )
         );
