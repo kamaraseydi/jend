@@ -27,6 +27,13 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
 
+                        // Documentation Swagger/OpenAPI : accès public
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
+
                         // Mes annonces : authentification obligatoire
                         .requestMatchers(
                                 HttpMethod.GET, "/api/annonces/me"
