@@ -1,0 +1,12 @@
+
+services:
+  application:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jend-application-prod
+    env_file:
+      - .env.prod
+    ports:
+      - "8081:8080"
+    restart: unless-stopped

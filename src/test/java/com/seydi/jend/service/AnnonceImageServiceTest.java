@@ -1,6 +1,6 @@
+
 package com.seydi.jend.service;
 
-import com.seydi.jend.dto.request.AddAnnonceImageRequest;
 import com.seydi.jend.dto.response.AnnonceImageResponse;
 import com.seydi.jend.entity.Annonce;
 import com.seydi.jend.entity.AnnonceImage;
@@ -10,7 +10,6 @@ import com.seydi.jend.exception.AnnonceModificationInterditeException;
 import com.seydi.jend.exception.CompteSupprimeException;
 import com.seydi.jend.exception.ResourceNotFoundException;
 import com.seydi.jend.exception.UtilisateurSuspenduException;
-import com.seydi.jend.mapper.AnnonceImageMapper;
 import com.seydi.jend.repository.AnnonceImageRepository;
 import com.seydi.jend.repository.AnnonceRepository;
 import com.seydi.jend.security.CurrentUserService;
@@ -20,17 +19,27 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AnnonceImageServiceTest {
+
+    private static final Long ANNONCE_ID = 100L;
+    private static final Long IMAGE_ID = 10L;
+    private static final String STORAGE_PATH =
+            "annonces/100/123456.jpg";
+    private static final String SIGNED_URL =
+            "https://example.supabase.co/signed/test.jpg?token=test";
 
     @Mock
     private AnnonceImageRepository annonceImageRepository;
@@ -39,10 +48,10 @@ class AnnonceImageServiceTest {
     private AnnonceRepository annonceRepository;
 
     @Mock
-    private AnnonceImageMapper annonceImageMapper;
+    private CurrentUserService currentUserService;
 
     @Mock
-    private CurrentUserService currentUserService;
+    private SupabaseStorageService storageService;
 
     @InjectMocks
     private AnnonceImageService annonceImageService;
@@ -50,8 +59,7 @@ class AnnonceImageServiceTest {
     private UserProfile user;
     private Annonce annonce;
     private AnnonceImage image;
-    private AddAnnonceImageRequest request;
-    private AnnonceImageResponse response;
+    private MultipartFile file;
 
     @BeforeEach
     void setUp() {
@@ -62,368 +70,296 @@ class AnnonceImageServiceTest {
         user.setSuspendu(false);
 
         annonce = new Annonce();
-        annonce.setId(100L);
+        annonce.setId(ANNONCE_ID);
         annonce.setVendeur(user);
         annonce.setStatut(StatutAnnonce.PUBLIEE);
 
         image = new AnnonceImage();
-        image.setId(10L);
+        image.setId(IMAGE_ID);
         image.setAnnonce(annonce);
-        image.setUrl("https://example.com/image.jpg");
+        image.setUrl(STORAGE_PATH);
         image.setOrdre(1);
         image.setCreatedAt(OffsetDateTime.now());
 
-        request = new AddAnnonceImageRequest(
-                "https://example.com/image.jpg",
-                1
-        );
+        file = validImage();
+    }
 
-        response = new AnnonceImageResponse(
-                10L,
-                "https://example.com/image.jpg",
-                1,
-                image.getCreatedAt()
+    private MultipartFile validImage() {
+        return new MockMultipartFile(
+                "file",
+                "image.jpg",
+                "image/jpeg",
+                new byte[]{1, 2, 3}
         );
     }
 
-    @Test
-    void addImage_shouldAddImage_whenUserIsOwner() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
+    private void givenOwnerAndAnnonce() {
+        when(currentUserService.getCurrentUser()).thenReturn(user);
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
+    }
 
-        when(annonceImageRepository.countByAnnonceId(100L))
-                .thenReturn(2L);
-
-        when(annonceImageRepository.existsByAnnonceIdAndOrdre(100L, 1))
+    private void givenAvailableOrder(Integer ordre) {
+        when(annonceImageRepository.countByAnnonceId(ANNONCE_ID))
+                .thenReturn(0L);
+        when(annonceImageRepository
+                .existsByAnnonceIdAndOrdre(ANNONCE_ID, ordre))
                 .thenReturn(false);
+    }
 
-        when(annonceImageMapper.toEntity(request))
-                .thenReturn(image);
+    private void givenSuccessfulUpload() {
+        when(annonceImageRepository.saveAndFlush(any(AnnonceImage.class)))
+                .thenAnswer(invocation -> {
+                    AnnonceImage saved = invocation.getArgument(0);
+                    saved.setId(IMAGE_ID);
+                    return saved;
+                });
 
-        when(annonceImageRepository.save(image))
-                .thenReturn(image);
+        when(storageService.createSignedUrl(anyString()))
+                .thenReturn(SIGNED_URL);
+    }
 
-        when(annonceImageMapper.toResponse(image))
-                .thenReturn(response);
+    @Test
+    void addImage_shouldUploadAndSave_whenUserIsOwner() {
+        givenOwnerAndAnnonce();
+        givenAvailableOrder(1);
+        givenSuccessfulUpload();
 
         AnnonceImageResponse result =
-                annonceImageService.addImage(100L, request);
+                annonceImageService.addImage(ANNONCE_ID, file, 1);
 
-        assertEquals(response, result);
-        assertEquals(annonce, image.getAnnonce());
+        assertEquals(IMAGE_ID, result.id());
+        assertEquals(SIGNED_URL, result.url());
+        assertEquals(1, result.ordre());
 
-        verify(annonceImageRepository).save(image);
-        verify(annonceImageMapper).toResponse(image);
+        verify(storageService).upload(
+                startsWith("annonces/100/"),
+                any(byte[].class),
+                eq("image/jpeg")
+        );
+        verify(annonceImageRepository).saveAndFlush(any(AnnonceImage.class));
+        verify(storageService).createSignedUrl(anyString());
     }
 
     @Test
     void addImage_shouldThrow_whenAnnonceDoesNotExist() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
+        when(currentUserService.getCurrentUser()).thenReturn(user);
         when(annonceRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.addImage(999L, request)
+                () -> annonceImageService.addImage(999L, file, 1)
         );
 
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenUserIsNotOwner() {
-
         UserProfile otherUser = new UserProfile();
         otherUser.setId(99L);
-
         annonce.setVendeur(otherUser);
 
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verify(annonceImageRepository, never())
-                .countByAnnonceId(anyLong());
-
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
+        verify(annonceImageRepository, never()).countByAnnonceId(anyLong());
     }
 
     @Test
     void addImage_shouldThrow_whenAccountIsDeleted() {
-
         user.setDeletedAt(OffsetDateTime.now());
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
 
         assertThrows(
                 CompteSupprimeException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verifyNoInteractions(annonceRepository);
-        verifyNoInteractions(annonceImageRepository);
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(annonceRepository, annonceImageRepository,
+                storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenUserIsSuspended() {
-
         user.setSuspendu(true);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
 
         assertThrows(
                 UtilisateurSuspenduException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verifyNoInteractions(annonceRepository);
-        verifyNoInteractions(annonceImageRepository);
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(annonceRepository, annonceImageRepository,
+                storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenAnnonceIsSold() {
-
         annonce.setStatut(StatutAnnonce.VENDUE);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verify(annonceImageRepository, never())
-                .countByAnnonceId(anyLong());
-
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenAnnonceIsDeleted() {
-
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verify(annonceImageRepository, never())
-                .countByAnnonceId(anyLong());
-
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenAnnonceAlreadyHasEightImages() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.countByAnnonceId(100L))
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.countByAnnonceId(ANNONCE_ID))
                 .thenReturn(8L);
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
-
-        verify(annonceImageRepository)
-                .countByAnnonceId(100L);
 
         verify(annonceImageRepository, never())
                 .existsByAnnonceIdAndOrdre(anyLong(), anyInt());
-
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void addImage_shouldThrow_whenOrderAlreadyExists() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.countByAnnonceId(100L))
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.countByAnnonceId(ANNONCE_ID))
                 .thenReturn(2L);
-
-        when(annonceImageRepository.existsByAnnonceIdAndOrdre(100L, 1))
+        when(annonceImageRepository
+                .existsByAnnonceIdAndOrdre(ANNONCE_ID, 1))
                 .thenReturn(true);
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.addImage(100L, request)
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
         );
 
-        verify(annonceImageRepository)
-                .existsByAnnonceIdAndOrdre(100L, 1);
-
-        verifyNoInteractions(annonceImageMapper);
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void addImage_shouldAllowDraftAnnonce() {
-
         annonce.setStatut(StatutAnnonce.BROUILLON);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.countByAnnonceId(100L))
-                .thenReturn(0L);
-
-        when(annonceImageRepository.existsByAnnonceIdAndOrdre(100L, 1))
-                .thenReturn(false);
-
-        when(annonceImageMapper.toEntity(request))
-                .thenReturn(image);
-
-        when(annonceImageRepository.save(image))
-                .thenReturn(image);
-
-        when(annonceImageMapper.toResponse(image))
-                .thenReturn(response);
+        givenOwnerAndAnnonce();
+        givenAvailableOrder(1);
+        givenSuccessfulUpload();
 
         AnnonceImageResponse result =
-                annonceImageService.addImage(100L, request);
+                annonceImageService.addImage(ANNONCE_ID, file, 1);
 
-        assertEquals(response, result);
-        verify(annonceImageRepository).save(image);
+        assertEquals(SIGNED_URL, result.url());
+        verify(storageService).upload(
+                anyString(), any(byte[].class), eq("image/jpeg"));
     }
 
     @Test
     void addImage_shouldAllowSuspendedAnnonce() {
-
         annonce.setStatut(StatutAnnonce.SUSPENDUE);
+        givenOwnerAndAnnonce();
+        givenAvailableOrder(1);
+        givenSuccessfulUpload();
 
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.countByAnnonceId(100L))
-                .thenReturn(0L);
-
-        when(annonceImageRepository.existsByAnnonceIdAndOrdre(100L, 1))
-                .thenReturn(false);
-
-        when(annonceImageMapper.toEntity(request))
-                .thenReturn(image);
-
-        when(annonceImageRepository.save(image))
-                .thenReturn(image);
-
-        when(annonceImageMapper.toResponse(image))
-                .thenReturn(response);
-
-        AnnonceImageResponse result =
-                annonceImageService.addImage(100L, request);
-
-        assertEquals(response, result);
-        verify(annonceImageRepository).save(image);
+        assertDoesNotThrow(
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 1)
+        );
     }
 
     @Test
-    void findImages_shouldReturnImages_whenAnnonceIsPublished() {
+    void addImage_shouldRejectEmptyFile() {
+        givenOwnerAndAnnonce();
 
-        AnnonceImage secondImage = new AnnonceImage();
-        secondImage.setId(11L);
-        secondImage.setAnnonce(annonce);
-        secondImage.setUrl("https://example.com/image2.jpg");
-        secondImage.setOrdre(2);
+        MultipartFile emptyFile = new MockMultipartFile(
+                "file", "empty.jpg", "image/jpeg", new byte[0]);
 
-        AnnonceImageResponse secondResponse =
-                new AnnonceImageResponse(
-                        11L,
-                        "https://example.com/image2.jpg",
-                        2,
-                        secondImage.getCreatedAt()
-                );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> annonceImageService.addImage(ANNONCE_ID, emptyFile, 1)
+        );
 
-        when(annonceRepository.findById(100L))
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void addImage_shouldRejectUnsupportedMimeType() {
+        givenOwnerAndAnnonce();
+
+        MultipartFile invalidFile = new MockMultipartFile(
+                "file", "script.txt", "text/plain", new byte[]{1, 2, 3});
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> annonceImageService.addImage(ANNONCE_ID, invalidFile, 1)
+        );
+
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void addImage_shouldRejectOrderOutsideRange() {
+        givenOwnerAndAnnonce();
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> annonceImageService.addImage(ANNONCE_ID, file, 9)
+        );
+
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    void findImages_shouldReturnSignedUrls_whenAnnonceIsPublished() {
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(100L))
-                .thenReturn(List.of(image, secondImage));
-
-        when(annonceImageMapper.toResponse(image))
-                .thenReturn(response);
-
-        when(annonceImageMapper.toResponse(secondImage))
-                .thenReturn(secondResponse);
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(ANNONCE_ID))
+                .thenReturn(List.of(image));
+        when(storageService.createSignedUrl(STORAGE_PATH))
+                .thenReturn(SIGNED_URL);
 
         List<AnnonceImageResponse> result =
-                annonceImageService.findImages(100L);
+                annonceImageService.findImages(ANNONCE_ID);
 
-        assertEquals(2, result.size());
+        assertEquals(1, result.size());
+        assertEquals(SIGNED_URL, result.get(0).url());
         assertEquals(1, result.get(0).ordre());
-        assertEquals(2, result.get(1).ordre());
-
-        verify(annonceImageRepository)
-                .findByAnnonceIdOrderByOrdreAsc(100L);
     }
 
     @Test
     void findImages_shouldReturnImages_whenAnnonceIsSold() {
-
         annonce.setStatut(StatutAnnonce.VENDUE);
-
-        when(annonceRepository.findById(100L))
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(100L))
+        when(annonceImageRepository.findByAnnonceIdOrderByOrdreAsc(ANNONCE_ID))
                 .thenReturn(List.of(image));
+        when(storageService.createSignedUrl(STORAGE_PATH))
+                .thenReturn(SIGNED_URL);
 
-        when(annonceImageMapper.toResponse(image))
-                .thenReturn(response);
-
-        List<AnnonceImageResponse> result =
-                annonceImageService.findImages(100L);
-
-        assertEquals(1, result.size());
-        assertEquals(response, result.get(0));
+        assertEquals(1, annonceImageService.findImages(ANNONCE_ID).size());
     }
 
     @Test
     void findImages_shouldThrow_whenAnnonceDoesNotExist() {
-
         when(annonceRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
@@ -432,273 +368,208 @@ class AnnonceImageServiceTest {
                 () -> annonceImageService.findImages(999L)
         );
 
-        verify(annonceImageRepository, never())
-                .findByAnnonceIdOrderByOrdreAsc(anyLong());
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void findImages_shouldThrow_whenAnnonceIsNotPublic() {
-
         annonce.setStatut(StatutAnnonce.BROUILLON);
-
-        when(annonceRepository.findById(100L))
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.findImages(100L)
+                () -> annonceImageService.findImages(ANNONCE_ID)
         );
 
-        verify(annonceImageRepository, never())
-                .findByAnnonceIdOrderByOrdreAsc(anyLong());
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void findImages_shouldThrow_whenAnnonceIsSuspended() {
-
         annonce.setStatut(StatutAnnonce.SUSPENDUE);
-
-        when(annonceRepository.findById(100L))
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.findImages(100L)
+                () -> annonceImageService.findImages(ANNONCE_ID)
         );
 
-        verify(annonceImageRepository, never())
-                .findByAnnonceIdOrderByOrdreAsc(anyLong());
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void findImages_shouldThrow_whenAnnonceIsDeleted() {
-
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
-
-        when(annonceRepository.findById(100L))
+        when(annonceRepository.findById(ANNONCE_ID))
                 .thenReturn(Optional.of(annonce));
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.findImages(100L)
+                () -> annonceImageService.findImages(ANNONCE_ID)
         );
 
-        verify(annonceImageRepository, never())
-                .findByAnnonceIdOrderByOrdreAsc(anyLong());
+        verifyNoInteractions(storageService);
     }
 
     @Test
-    void deleteImage_shouldDeleteImage_whenUserIsOwner() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findById(10L))
+    void deleteImage_shouldDeleteStorageAndDatabase_whenUserIsOwner() {
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.findById(IMAGE_ID))
                 .thenReturn(Optional.of(image));
 
-        annonceImageService.deleteImage(100L, 10L);
+        annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID);
 
-        verify(annonceImageRepository).findById(10L);
+        verify(storageService).delete(STORAGE_PATH);
         verify(annonceImageRepository).delete(image);
     }
 
     @Test
     void deleteImage_shouldThrow_whenImageDoesNotExist() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
+        givenOwnerAndAnnonce();
         when(annonceImageRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.deleteImage(100L, 999L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, 999L)
         );
 
-        verify(annonceImageRepository, never()).delete(any());
+        verifyNoInteractions(storageService);
     }
 
     @Test
     void deleteImage_shouldThrow_whenImageBelongsToAnotherAnnonce() {
-
         Annonce otherAnnonce = new Annonce();
         otherAnnonce.setId(200L);
-
         image.setAnnonce(otherAnnonce);
 
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findById(10L))
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.findById(IMAGE_ID))
                 .thenReturn(Optional.of(image));
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
+        verifyNoInteractions(storageService);
         verify(annonceImageRepository, never()).delete(any());
     }
 
     @Test
     void deleteImage_shouldThrow_whenUserIsNotOwner() {
-
         UserProfile otherUser = new UserProfile();
         otherUser.setId(99L);
-
         annonce.setVendeur(otherUser);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AccessDeniedException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
+        verifyNoInteractions(storageService);
         verify(annonceImageRepository, never()).findById(anyLong());
-        verify(annonceImageRepository, never()).delete(any());
     }
 
     @Test
     void deleteImage_shouldThrow_whenAccountIsDeleted() {
-
         user.setDeletedAt(OffsetDateTime.now());
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
 
         assertThrows(
                 CompteSupprimeException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
-        verifyNoInteractions(annonceRepository);
-        verifyNoInteractions(annonceImageRepository);
+        verifyNoInteractions(annonceRepository, annonceImageRepository,
+                storageService);
     }
 
     @Test
     void deleteImage_shouldThrow_whenUserIsSuspended() {
-
         user.setSuspendu(true);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
+        when(currentUserService.getCurrentUser()).thenReturn(user);
 
         assertThrows(
                 UtilisateurSuspenduException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
-        verifyNoInteractions(annonceRepository);
-        verifyNoInteractions(annonceImageRepository);
+        verifyNoInteractions(annonceRepository, annonceImageRepository,
+                storageService);
     }
 
     @Test
     void deleteImage_shouldThrow_whenAnnonceIsSold() {
-
         annonce.setStatut(StatutAnnonce.VENDUE);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
+        verifyNoInteractions(storageService);
         verify(annonceImageRepository, never()).findById(anyLong());
-        verify(annonceImageRepository, never()).delete(any());
     }
 
     @Test
     void deleteImage_shouldThrow_whenAnnonceIsDeleted() {
-
         annonce.setStatut(StatutAnnonce.SUPPRIMEE);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
+        givenOwnerAndAnnonce();
 
         assertThrows(
                 AnnonceModificationInterditeException.class,
-                () -> annonceImageService.deleteImage(100L, 10L)
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
         );
 
+        verifyNoInteractions(storageService);
         verify(annonceImageRepository, never()).findById(anyLong());
-        verify(annonceImageRepository, never()).delete(any());
     }
 
     @Test
     void deleteImage_shouldAllowDraftAnnonce() {
-
         annonce.setStatut(StatutAnnonce.BROUILLON);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findById(10L))
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.findById(IMAGE_ID))
                 .thenReturn(Optional.of(image));
 
-        annonceImageService.deleteImage(100L, 10L);
+        assertDoesNotThrow(
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
+        );
 
+        verify(storageService).delete(STORAGE_PATH);
         verify(annonceImageRepository).delete(image);
     }
 
     @Test
     void deleteImage_shouldAllowSuspendedAnnonce() {
-
         annonce.setStatut(StatutAnnonce.SUSPENDUE);
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
-        when(annonceRepository.findById(100L))
-                .thenReturn(Optional.of(annonce));
-
-        when(annonceImageRepository.findById(10L))
+        givenOwnerAndAnnonce();
+        when(annonceImageRepository.findById(IMAGE_ID))
                 .thenReturn(Optional.of(image));
 
-        annonceImageService.deleteImage(100L, 10L);
+        assertDoesNotThrow(
+                () -> annonceImageService.deleteImage(ANNONCE_ID, IMAGE_ID)
+        );
 
-        verify(annonceImageRepository).delete(image);
+        verify(storageService).delete(STORAGE_PATH);
     }
 
     @Test
     void deleteImage_shouldThrow_whenAnnonceDoesNotExist() {
-
-        when(currentUserService.getCurrentUser())
-                .thenReturn(user);
-
+        when(currentUserService.getCurrentUser()).thenReturn(user);
         when(annonceRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> annonceImageService.deleteImage(999L, 10L)
+                () -> annonceImageService.deleteImage(999L, IMAGE_ID)
         );
 
-        verify(annonceImageRepository, never()).findById(anyLong());
+        verifyNoInteractions(storageService);
     }
 }
